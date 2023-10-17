@@ -2,16 +2,18 @@ module github.com/bwesterb/go-incomfort
 
 go 1.17
 
-require github.com/brutella/hc v1.2.4
-
 require (
-	github.com/brutella/dnssd v1.2.0 // indirect
+	github.com/brutella/dnssd v1.2.7 // indirect
+	github.com/brutella/hap v0.0.27 // indirect
+	github.com/go-chi/chi v1.5.4 // indirect
 	github.com/gosexy/to v0.0.0-20141221203644-c20e083e3123 // indirect
-	github.com/miekg/dns v1.1.4 // indirect
-	github.com/tadglines/go-pkgs v0.0.0-20140924210655-1f86682992f1 // indirect
-	github.com/xiam/to v0.0.0-20191116183551-8328998fc0ed // indirect
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
-	golang.org/x/net v0.0.0-20210119194325-5f4716e94777 // indirect
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
-	golang.org/x/text v0.3.3 // indirect
+	github.com/miekg/dns v1.1.50 // indirect
+	github.com/tadglines/go-pkgs v0.0.0-20210623144937-b983b20f54f9 // indirect
+	github.com/xiam/to v0.0.0-20200126224905-d60d31e03561 // indirect
+	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838 // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
+	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
+	golang.org/x/text v0.3.8 // indirect
+	golang.org/x/tools v0.1.12 // indirect
 )

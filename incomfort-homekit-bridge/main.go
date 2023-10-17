@@ -1,13 +1,19 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"github.com/brutella/hc"
-	"github.com/brutella/hc/accessory"
-	"github.com/brutella/hc/characteristic"
-	"github.com/bwesterb/go-incomfort"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"github.com/bwesterb/go-incomfort"
+
+	"github.com/brutella/hap"
+	"github.com/brutella/hap/accessory"
+	"github.com/brutella/hap/characteristic"
 )
 
 var heater incomfort.Heater
@@ -54,27 +60,27 @@ func main() {
 	info := accessory.Info{
 		Name: "Incomfort Gateway",
 	}
-	acc = accessory.NewThermostat(info, float64(heater.RoomTemp), 5.0, 30.0, 0.5)
+	acc = accessory.NewThermostat(info)
 
 	var portString = ""
 	if port != 0 {
 		portString = string(port)
 	}
-	config := hc.Config{
-		Pin:         pin,
-		Port:        portString,
-		StoragePath: storagePath,
-	}
-	t, err := hc.NewIPTransport(config, acc.Accessory)
+	fs := hap.NewFsStore("./db")
+
+	s, err := hap.NewServer(fs, acc.A)
 	if err != nil {
 		log.Panic(err)
 	}
+
+	s.Pin = pin
+	s.Addr = ":" + portString
 
 	acc.Thermostat.TargetTemperature.OnValueRemoteUpdate(func(temp float64) {
 		heater.Set(float32(temp))
 	})
 
-	updateTicker = time.NewTicker(time.Second * 60) // TODO
+	updateTicker = time.NewTicker(time.Second * 60)
 	go func() {
 		for _ = range updateTicker.C {
 			Update()
@@ -83,10 +89,17 @@ func main() {
 
 	Update()
 
-	hc.OnTermination(func() {
-		t.Stop()
-		updateTicker.Stop()
-	})
+	ctx, cancel := context.WithCancel(context.Background())
 
-	t.Start()
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, syscall.SIGTERM)
+	go func() {
+		<-c
+		signal.Stop(c)
+		cancel()
+	}()
+
+	s.ListenAndServe(ctx)
+	updateTicker.Stop()
 }
