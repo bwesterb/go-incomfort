@@ -66,7 +66,7 @@ func main() {
 	if port != 0 {
 		portString = string(port)
 	}
-	fs := hap.NewFsStore("./db")
+	fs := hap.NewFsStore(storagePath)
 
 	s, err := hap.NewServer(fs, acc.A)
 	if err != nil {
