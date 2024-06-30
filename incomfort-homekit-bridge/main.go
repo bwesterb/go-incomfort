@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -38,17 +39,26 @@ func Update() {
 }
 
 func main() {
-	var pin string
-	var host string
-	var port int
-	var storagePath string
+	var (
+		pin         string
+		host        string
+		addr        string
+		storagePath string
+		ifacesRaw   string
+	)
 
 	flag.StringVar(&pin, "pin", "00102003", "pincode")
-	flag.IntVar(&port, "port", 0, "Local port to use")
+	flag.StringVar(&addr, "addr", ":", "Local address to use")
 	flag.StringVar(&host, "host", "", "hostname of incomfort LAN2RF bridge")
 	flag.StringVar(&storagePath, "db", "./db", "path to local storage")
+	flag.StringVar(&ifacesRaw, "ifaces", "", "comma-separated list of interfaces to advertise on")
 
 	flag.Parse()
+
+	var ifaces []string
+	if ifacesRaw != "" {
+		ifaces = strings.Split(ifacesRaw, ",")
+	}
 
 	gw := incomfort.NewGateway(host)
 	if heaters, err := gw.Heaters(); err != nil {
@@ -58,14 +68,10 @@ func main() {
 	}
 
 	info := accessory.Info{
-		Name: "Incomfort Gateway",
+		Name: "IncomfortGateway",
 	}
 	acc = accessory.NewThermostat(info)
 
-	var portString = ""
-	if port != 0 {
-		portString = string(port)
-	}
 	fs := hap.NewFsStore(storagePath)
 
 	s, err := hap.NewServer(fs, acc.A)
@@ -74,7 +80,8 @@ func main() {
 	}
 
 	s.Pin = pin
-	s.Addr = ":" + portString
+	s.Addr = addr
+	s.Ifaces = ifaces
 
 	acc.Thermostat.TargetTemperature.OnValueRemoteUpdate(func(temp float64) {
 		heater.Set(float32(temp))
