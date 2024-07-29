@@ -2,12 +2,10 @@ module github.com/bwesterb/go-incomfort
 
 go 1.19
 
-require (
-	github.com/brutella/dnssd v1.2.10
-	github.com/brutella/hap v0.0.33
-)
+require github.com/brutella/hap v0.0.34
 
 require (
+	github.com/brutella/dnssd v1.2.11 // indirect
 	github.com/go-chi/chi v1.5.5 // indirect
 	github.com/miekg/dns v1.1.61 // indirect
 	github.com/tadglines/go-pkgs v0.0.0-20210623144937-b983b20f54f9 // indirect
