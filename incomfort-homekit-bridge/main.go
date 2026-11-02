@@ -4,9 +4,11 @@ import (
 	"context"
 	"flag"
 	"log"
+	"math"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -21,9 +23,59 @@ var heater incomfort.Heater
 var acc *accessory.Thermostat
 var updateTicker *time.Ticker
 
+// A target set via HomeKit takes a few minutes to reach the thermostat.
+// Until then we report the requested target instead of the thermostat's
+// (old) setpoint, so the Home app doesn't jump back.
+const pendingTimeout = 10 * time.Minute
+
+var (
+	pendingMux sync.Mutex
+	pending    float64 // target set via HomeKit not yet seen; 0 if none
+	pendingAt  time.Time
+)
+
+func setPending(temp float64) {
+	pendingMux.Lock()
+	defer pendingMux.Unlock()
+	pending = temp
+	pendingAt = time.Now()
+}
+
+// Returns the target temperature to report to HomeKit.
+func target() float64 {
+	pendingMux.Lock()
+	defer pendingMux.Unlock()
+
+	setpoint := float64(heater.Setpoint)
+	if pending != 0 {
+		// The thermostat rounds the setpoint down to whole degrees.
+		if math.Floor(pending) == setpoint ||
+			time.Since(pendingAt) > pendingTimeout {
+			pending = 0
+		} else {
+			return pending
+		}
+	}
+	return setpoint
+}
+
 func Update() {
-	heater.Update()
-	acc.Thermostat.TargetTemperature.SetValue(float64(heater.SetpointOverride))
+	if err := heater.Update(); err != nil {
+		log.Printf("Failed to update: %v", err)
+		return
+	}
+
+	// Right after a reboot the gateway briefly reports (near) zero for
+	// everything. Don't pass that on.
+	if heater.Pressure < 0.1 && heater.RoomTemp < 1 {
+		log.Printf("Skipping implausible reading (gateway rebooting?)")
+		return
+	}
+
+	// We report the thermostat's setpoint rather than the gateway's
+	// SetpointOverride: the latter is only set by us, and the gateway
+	// forgets it when it reboots.
+	acc.Thermostat.TargetTemperature.SetValue(target())
 	acc.Thermostat.CurrentTemperature.SetValue(float64(heater.RoomTemp))
 
 	if heater.IsBurning {
@@ -84,7 +136,13 @@ func main() {
 	s.Ifaces = ifaces
 
 	acc.Thermostat.TargetTemperature.OnValueRemoteUpdate(func(temp float64) {
-		heater.Set(float32(temp))
+		if err := heater.Set(float32(temp)); err != nil {
+			log.Printf("Failed to set target to %.1f: %v", temp, err)
+			setPending(0)
+			return
+		}
+		log.Printf("Set target to %.1f", temp)
+		setPending(temp)
 	})
 
 	updateTicker = time.NewTicker(time.Second * 60)
@@ -98,7 +156,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	signal.Notify(c, syscall.SIGTERM)
 	go func() {
