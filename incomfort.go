@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
+
+// The gateway sometimes hangs; don't wait for it forever.
+var httpClient = &http.Client{Timeout: 10 * time.Second}
 
 var displayCodes = map[int]string{
 	85:  "sensortest",
@@ -97,7 +101,7 @@ func NewGateway(host string) *Gateway {
 }
 
 func (g *Gateway) doGet(path string, data interface{}) error {
-	resp, err := http.Get("http://" + g.Host + path)
+	resp, err := httpClient.Get("http://" + g.Host + path)
 	if err != nil {
 		return err
 	}
